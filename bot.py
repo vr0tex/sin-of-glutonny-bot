@@ -82,6 +82,76 @@ class YesNoView(discord.ui.View):
             await interaction.response.edit_message(view=None)
             self.stop()
 
+class ApplicationReviewView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    async def handle_action(self, interaction: discord.Interaction, action: str):
+        embed = interaction.message.embeds[0]
+        import re
+        match = re.search(r'UserId: `(\d+)`', embed.description)
+        if not match:
+            await interaction.response.send_message("Could not find User ID in embed.", ephemeral=True)
+            return
+            
+        user_id = int(match.group(1))
+        member = interaction.guild.get_member(user_id)
+        
+        status_text = ""
+        role_text = ""
+        
+        if action == "accept":
+            status_text = f"✅ Accepted by {interaction.user.mention}"
+            if member:
+                role = interaction.guild.get_role(1538118635858427974)
+                if role:
+                    try:
+                        await member.add_roles(role)
+                        role_text = f"✅ {role.mention} has been added to {member.mention}"
+                    except Exception as e:
+                        role_text = f"❌ Failed to add role. {e}"
+                else:
+                    role_text = "❌ Mod role not found."
+                    
+                try:
+                    await member.send("Congrats! youve been selected to be a mod")
+                except:
+                    pass
+            else:
+                status_text += " (User not in server)"
+                
+        elif action == "reject":
+            status_text = f"❌ Rejected by {interaction.user.mention}"
+        elif action == "blacklist":
+            status_text = f"⛔ Blacklisted by {interaction.user.mention}"
+            
+        # Append to embed
+        embed.description += f"\n\n**Status**\n{status_text}"
+        if role_text:
+            embed.description += f"\n**Role Granted**\n{role_text}"
+            
+        if action == "accept":
+            embed.color = 0x57F287
+        elif action == "reject":
+            embed.color = 0xED4245
+        elif action == "blacklist":
+            embed.color = 0x000000
+            
+        # Disable buttons and remove them
+        await interaction.response.edit_message(embed=embed, view=None)
+
+    @discord.ui.button(label="Accept", style=discord.ButtonStyle.success, custom_id="review_accept")
+    async def btn_accept(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.handle_action(interaction, "accept")
+
+    @discord.ui.button(label="Reject", style=discord.ButtonStyle.danger, custom_id="review_reject")
+    async def btn_reject(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.handle_action(interaction, "reject")
+
+    @discord.ui.button(label="Blacklist", style=discord.ButtonStyle.secondary, custom_id="review_blacklist")
+    async def btn_blacklist(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.handle_action(interaction, "blacklist")
+
 class ApplyView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -149,7 +219,7 @@ class ApplyView(discord.ui.View):
 
             channel = bot.get_channel(SUBMISSION_CHANNEL_ID)
             if channel:
-                await channel.send(embed=embed)
+                await channel.send(embed=embed, view=ApplicationReviewView())
                 await user.send("Your application has been submitted successfully!")
             else:
                 await user.send("There was an error submitting your application (Submission channel not found). Please contact an admin.")
@@ -160,10 +230,12 @@ class ApplyView(discord.ui.View):
             pass # Cannot send DM
 
 
+
 @bot.event
 async def on_ready():
     bot.add_view(ApplyView())
     bot.add_view(RoleView())
+    bot.add_view(ApplicationReviewView())
     print(f'Logged in as {bot.user.name} ({bot.user.id})')
     print('------')
 
