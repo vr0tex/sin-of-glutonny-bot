@@ -5,21 +5,18 @@ import asyncio
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-# Set up the bot with required intents
 intents = discord.Intents.default()
-intents.message_content = True  # Required to read message content
-intents.members = True # Useful for getting join date
+intents.message_content = True
+intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 SUBMISSION_CHANNEL_ID = 1538878995431686184
 BOOST_CHANNEL_ID = 1539256731966898216
 
-# Role IDs
 ROLE_SUB_ANNOUNCEMENTS = 1538885265941069824
 ROLE_ANNOUNCEMENTS = 1538885514353180702
 ROLE_GIVEAWAYS = 1538885604782121031
@@ -43,7 +40,6 @@ class RoleView(discord.ui.View):
         if not role:
             await interaction.response.send_message(f"Error: Could not find the {role_name} role. Please contact an admin.", ephemeral=True)
             return
-
         if role in interaction.user.roles:
             await interaction.user.remove_roles(role)
             await interaction.response.send_message(f"Removed the **{role_name}** role.", ephemeral=True)
@@ -97,7 +93,6 @@ class ApplicationReviewView(discord.ui.View):
 
         user_id = int(match.group(1))
         member = interaction.guild.get_member(user_id)
-
         status_text = ""
         role_text = ""
 
@@ -113,14 +108,12 @@ class ApplicationReviewView(discord.ui.View):
                         role_text = f"❌ Failed to add role. {e}"
                 else:
                     role_text = "❌ Mod role not found."
-
                 try:
                     await member.send("Congrats! youve been selected to be a mod")
                 except:
                     pass
             else:
                 status_text += " (User not in server)"
-
         elif action == "reject":
             status_text = f"❌ Rejected by {interaction.user.mention}"
         elif action == "blacklist":
@@ -177,7 +170,6 @@ class ApplyView(discord.ui.View):
                     await user.send(f"**{q_text}**")
                     def check(m):
                         return m.author == user and isinstance(m.channel, discord.DMChannel)
-
                     msg = await bot.wait_for('message', check=check, timeout=300)
                     answers.append((q_text, msg.content))
 
@@ -191,10 +183,7 @@ class ApplyView(discord.ui.View):
             joined_at = "Unknown"
             if hasattr(user, 'joined_at') and user.joined_at:
                 days_ago = (datetime.now(timezone.utc) - user.joined_at).days
-                if days_ago == 0:
-                    joined_at = "today"
-                else:
-                    joined_at = f"{days_ago} days ago"
+                joined_at = "today" if days_ago == 0 else f"{days_ago} days ago"
 
             description += (
                 f"**Submission stats**\n"
@@ -219,7 +208,7 @@ class ApplyView(discord.ui.View):
                 await channel.send(embed=embed, view=ApplicationReviewView())
                 await user.send("Your application has been submitted successfully!")
             else:
-                await user.send("There was an error submitting your application (Submission channel not found). Please contact an admin.")
+                await user.send("There was an error submitting your application. Please contact an admin.")
 
         except asyncio.TimeoutError:
             await user.send("Your application timed out. Please try again.")
@@ -228,12 +217,10 @@ class ApplyView(discord.ui.View):
 
 
 async def send_boost_embed(channel, member):
-    """Sends the boost thank you embed for a given member."""
     embed = discord.Embed(
         title=f"{member.guild.name}'s Boosters Message",
         color=0xf47fff
     )
-
     embed.description = (
         f"**Thanks for boosting,\n{member.mention}**\n\n"
         f"You Are Now Part Of The Booster Club\n"
@@ -247,28 +234,22 @@ async def send_boost_embed(channel, member):
         f"🎖️ Post images, GIFs & edit nickname\n"
         f"🎖️ 2x giveaway entries"
     )
-
     if member.avatar:
         embed.set_thumbnail(url=member.avatar.url)
-
     if member.guild.icon:
         embed.set_footer(text=f"{member.guild.name} • Thank you for boosting!", icon_url=member.guild.icon.url)
     else:
         embed.set_footer(text=f"{member.guild.name} • Thank you for boosting!")
-
     await channel.send(embed=embed)
 
 
 @bot.event
 async def on_member_update(before, after):
-    """Fires when a member gets the Server Booster role."""
     booster_role = after.guild.premium_subscriber_role
     if booster_role is None:
         return
-
     had_boost = booster_role in before.roles
     has_boost = booster_role in after.roles
-
     if not had_boost and has_boost:
         channel = bot.get_channel(BOOST_CHANNEL_ID)
         if channel:
@@ -290,7 +271,6 @@ async def roles(ctx):
         await ctx.message.delete()
     except:
         pass
-
     description = (
         "| ℹ️ **Stay in the loop!**\n"
         "| Click a button below to toggle your ping roles.\n"
@@ -299,13 +279,7 @@ async def roles(ctx):
         "🎉 **Giveaway Pings** — Get notified when giveaways go live\n"
         "🎊 **Sub Announcement Pings** — Minor updates & extra info"
     )
-
-    embed = discord.Embed(
-        title="🔔 Notification Pings",
-        description=description,
-        color=0x2b2d31
-    )
-
+    embed = discord.Embed(title="🔔 Notification Pings", description=description, color=0x2b2d31)
     icon_url = ctx.guild.icon.url if ctx.guild.icon else None
     embed.set_footer(text=f"{ctx.guild.name} System • Ping Roles", icon_url=icon_url)
     await ctx.send(embed=embed, view=RoleView())
@@ -317,7 +291,6 @@ async def setup_mod(ctx):
         await ctx.message.delete()
     except:
         pass
-
     embed = discord.Embed(
         title="Moderator Application",
         description="Click the button below to start your moderator application.",
@@ -333,7 +306,6 @@ async def lockdown(ctx, channel: discord.TextChannel = None):
     overwrite = channel.overwrites_for(default_role)
     overwrite.send_messages = False
     await channel.set_permissions(default_role, overwrite=overwrite)
-
     embed = discord.Embed(
         title="🔒 Channel Locked",
         description=f"{channel.mention} has been locked down. Only Administrators can send messages now.",
@@ -353,7 +325,6 @@ async def unlock(ctx, channel: discord.TextChannel = None):
     overwrite = channel.overwrites_for(default_role)
     overwrite.send_messages = None
     await channel.set_permissions(default_role, overwrite=overwrite)
-
     embed = discord.Embed(
         title="🔓 Channel Unlocked",
         description=f"{channel.mention} has been unlocked. Regular users can now send messages.",
@@ -373,7 +344,6 @@ async def test_boost(ctx, member: discord.Member = None):
         await ctx.message.delete()
     except:
         pass
-
     target = member or ctx.author
     channel = bot.get_channel(BOOST_CHANNEL_ID)
     if channel:
@@ -381,6 +351,15 @@ async def test_boost(ctx, member: discord.Member = None):
         await ctx.send(f"✅ Test boost message sent for {target.mention}!", delete_after=5)
     else:
         await ctx.send("❌ Boost channel not found! Check the channel ID.", delete_after=5)
+
+@test_boost.error
+async def test_boost_error(ctx, error):
+    if isinstance(error, commands.MemberNotFound):
+        await ctx.send("❌ Could not find that user. Make sure you **@mention** them properly (e.g. `!test_boost @username`).", delete_after=8)
+    elif isinstance(error, commands.BadArgument):
+        await ctx.send("❌ Invalid user. Try mentioning them directly with @.", delete_after=8)
+    else:
+        await ctx.send(f"❌ An error occurred: {error}", delete_after=8)
 
 @bot.command()
 async def ping(ctx):
