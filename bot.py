@@ -126,7 +126,6 @@ class ApplicationReviewView(discord.ui.View):
         elif action == "blacklist":
             status_text = f"⛔ Blacklisted by {interaction.user.mention}"
 
-        # Append to embed
         embed.description += f"\n\n**Status**\n{status_text}"
         if role_text:
             embed.description += f"\n**Role Granted**\n{role_text}"
@@ -182,7 +181,6 @@ class ApplyView(discord.ui.View):
                     msg = await bot.wait_for('message', check=check, timeout=300)
                     answers.append((q_text, msg.content))
 
-            # All answered, format embed
             end_time = datetime.now(timezone.utc)
             duration = int((end_time - start_time).total_seconds())
 
@@ -288,7 +286,6 @@ async def on_ready():
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def roles(ctx):
-    """Sets up the self-assignable roles message."""
     try:
         await ctx.message.delete()
     except:
@@ -311,13 +308,11 @@ async def roles(ctx):
 
     icon_url = ctx.guild.icon.url if ctx.guild.icon else None
     embed.set_footer(text=f"{ctx.guild.name} System • Ping Roles", icon_url=icon_url)
-
     await ctx.send(embed=embed, view=RoleView())
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setup_mod(ctx):
-    """Sets up the moderator application message in the current channel."""
     try:
         await ctx.message.delete()
     except:
@@ -333,14 +328,10 @@ async def setup_mod(ctx):
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def lockdown(ctx, channel: discord.TextChannel = None):
-    """Locks a channel so regular users cannot send messages."""
     channel = channel or ctx.channel
-
     default_role = ctx.guild.default_role
-
     overwrite = channel.overwrites_for(default_role)
     overwrite.send_messages = False
-
     await channel.set_permissions(default_role, overwrite=overwrite)
 
     embed = discord.Embed(
@@ -349,7 +340,6 @@ async def lockdown(ctx, channel: discord.TextChannel = None):
         color=0xED4245
     )
     await ctx.send(embed=embed)
-
     try:
         await ctx.message.delete(delay=5.0)
     except:
@@ -358,14 +348,10 @@ async def lockdown(ctx, channel: discord.TextChannel = None):
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def unlock(ctx, channel: discord.TextChannel = None):
-    """Unlocks a channel so regular users can send messages again."""
     channel = channel or ctx.channel
-
     default_role = ctx.guild.default_role
-
     overwrite = channel.overwrites_for(default_role)
     overwrite.send_messages = None
-
     await channel.set_permissions(default_role, overwrite=overwrite)
 
     embed = discord.Embed(
@@ -374,7 +360,6 @@ async def unlock(ctx, channel: discord.TextChannel = None):
         color=0x57F287
     )
     await ctx.send(embed=embed)
-
     try:
         await ctx.message.delete(delay=5.0)
     except:
@@ -382,22 +367,23 @@ async def unlock(ctx, channel: discord.TextChannel = None):
 
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def test_boost(ctx):
-    """Test command to simulate a boost message."""
+async def test_boost(ctx, member: discord.Member = None):
+    """Usage: !test_boost @user"""
     try:
         await ctx.message.delete()
     except:
         pass
+
+    target = member or ctx.author
     channel = bot.get_channel(BOOST_CHANNEL_ID)
     if channel:
-        await send_boost_embed(channel, ctx.author)
-        await ctx.send("✅ Test boost message sent!", delete_after=5)
+        await send_boost_embed(channel, target)
+        await ctx.send(f"✅ Test boost message sent for {target.mention}!", delete_after=5)
     else:
         await ctx.send("❌ Boost channel not found! Check the channel ID.", delete_after=5)
 
 @bot.command()
 async def ping(ctx):
-    """Answers with pong!"""
     try:
         await ctx.message.delete()
     except:
