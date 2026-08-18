@@ -17,6 +17,7 @@ intents.members = True # Useful for getting join date
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 SUBMISSION_CHANNEL_ID = 1538878995431686184
+BOOST_CHANNEL_ID = 1539256731966898216
 
 # Role IDs
 ROLE_SUB_ANNOUNCEMENTS = 1538885265941069824
@@ -93,13 +94,13 @@ class ApplicationReviewView(discord.ui.View):
         if not match:
             await interaction.response.send_message("Could not find User ID in embed.", ephemeral=True)
             return
-            
+
         user_id = int(match.group(1))
         member = interaction.guild.get_member(user_id)
-        
+
         status_text = ""
         role_text = ""
-        
+
         if action == "accept":
             status_text = f"✅ Accepted by {interaction.user.mention}"
             if member:
@@ -112,32 +113,31 @@ class ApplicationReviewView(discord.ui.View):
                         role_text = f"❌ Failed to add role. {e}"
                 else:
                     role_text = "❌ Mod role not found."
-                    
+
                 try:
                     await member.send("Congrats! youve been selected to be a mod")
                 except:
                     pass
             else:
                 status_text += " (User not in server)"
-                
+
         elif action == "reject":
             status_text = f"❌ Rejected by {interaction.user.mention}"
         elif action == "blacklist":
             status_text = f"⛔ Blacklisted by {interaction.user.mention}"
-            
+
         # Append to embed
         embed.description += f"\n\n**Status**\n{status_text}"
         if role_text:
             embed.description += f"\n**Role Granted**\n{role_text}"
-            
+
         if action == "accept":
             embed.color = 0x57F287
         elif action == "reject":
             embed.color = 0xED4245
         elif action == "blacklist":
             embed.color = 0x000000
-            
-        # Disable buttons and remove them
+
         await interaction.response.edit_message(embed=embed, view=None)
 
     @discord.ui.button(label="Accept", style=discord.ButtonStyle.success, custom_id="review_accept")
@@ -159,11 +159,11 @@ class ApplyView(discord.ui.View):
     @discord.ui.button(label="Apply for Moderator", style=discord.ButtonStyle.primary, custom_id="apply_mod_btn")
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message("I have sent you a DM to begin your application!", ephemeral=True)
-        
+
         user = interaction.user
         answers = []
         start_time = datetime.now(timezone.utc)
-        
+
         try:
             for q_text, q_type in QUESTIONS:
                 if q_type == "yesno":
@@ -178,19 +178,18 @@ class ApplyView(discord.ui.View):
                     await user.send(f"**{q_text}**")
                     def check(m):
                         return m.author == user and isinstance(m.channel, discord.DMChannel)
-                    
+
                     msg = await bot.wait_for('message', check=check, timeout=300)
                     answers.append((q_text, msg.content))
-                    
+
             # All answered, format embed
             end_time = datetime.now(timezone.utc)
             duration = int((end_time - start_time).total_seconds())
-            
-            # Format body
+
             description = ""
             for q, a in answers:
                 description += f"**{q}**\n\n{a}\n\n"
-                
+
             joined_at = "Unknown"
             if hasattr(user, 'joined_at') and user.joined_at:
                 days_ago = (datetime.now(timezone.utc) - user.joined_at).days
@@ -211,9 +210,9 @@ class ApplyView(discord.ui.View):
             embed = discord.Embed(
                 title=f"{user.name}'s 'Moderator Application' Application Submitted",
                 description=description,
-                color=0x2b2d31 # Discord dark theme colorish
+                color=0x2b2d31
             )
-            
+
             if user.avatar:
                 embed.set_thumbnail(url=user.avatar.url)
 
@@ -227,8 +226,55 @@ class ApplyView(discord.ui.View):
         except asyncio.TimeoutError:
             await user.send("Your application timed out. Please try again.")
         except discord.Forbidden:
-            pass # Cannot send DM
+            pass
 
+
+async def send_boost_embed(channel, member):
+    """Sends the boost thank you embed for a given member."""
+    embed = discord.Embed(
+        title=f"{member.guild.name}'s Boosters Message",
+        color=0xf47fff
+    )
+
+    embed.description = (
+        f"**Thanks for boosting,\n{member.mention}**\n\n"
+        f"You Are Now Part Of The Booster Club\n"
+        f"Welcome\n\n"
+        f"**Carrier Benefits**\n"
+        f"🎖️ Skip the queue – get instant help\n"
+        f"🎖️ Extra support on every ticket\n"
+        f"🎖️ Bypass message requirements\n\n"
+        f"**Server Benefits**\n"
+        f"🎖️ 30% XP boost for faster leveling\n"
+        f"🎖️ Post images, GIFs & edit nickname\n"
+        f"🎖️ 2x giveaway entries"
+    )
+
+    if member.avatar:
+        embed.set_thumbnail(url=member.avatar.url)
+
+    if member.guild.icon:
+        embed.set_footer(text=f"{member.guild.name} • Thank you for boosting!", icon_url=member.guild.icon.url)
+    else:
+        embed.set_footer(text=f"{member.guild.name} • Thank you for boosting!")
+
+    await channel.send(embed=embed)
+
+
+@bot.event
+async def on_member_update(before, after):
+    """Fires when a member gets the Server Booster role."""
+    booster_role = after.guild.premium_subscriber_role
+    if booster_role is None:
+        return
+
+    had_boost = booster_role in before.roles
+    has_boost = booster_role in after.roles
+
+    if not had_boost and has_boost:
+        channel = bot.get_channel(BOOST_CHANNEL_ID)
+        if channel:
+            await send_boost_embed(channel, after)
 
 
 @bot.event
@@ -247,7 +293,7 @@ async def roles(ctx):
         await ctx.message.delete()
     except:
         pass
-    
+
     description = (
         "| ℹ️ **Stay in the loop!**\n"
         "| Click a button below to toggle your ping roles.\n"
@@ -262,8 +308,7 @@ async def roles(ctx):
         description=description,
         color=0x2b2d31
     )
-    
-    # Try to set server icon as footer icon if available
+
     icon_url = ctx.guild.icon.url if ctx.guild.icon else None
     embed.set_footer(text=f"{ctx.guild.name} System • Ping Roles", icon_url=icon_url)
 
@@ -277,7 +322,7 @@ async def setup_mod(ctx):
         await ctx.message.delete()
     except:
         pass
-        
+
     embed = discord.Embed(
         title="Moderator Application",
         description="Click the button below to start your moderator application.",
@@ -290,23 +335,21 @@ async def setup_mod(ctx):
 async def lockdown(ctx, channel: discord.TextChannel = None):
     """Locks a channel so regular users cannot send messages."""
     channel = channel or ctx.channel
-    
-    # Get the @everyone role
+
     default_role = ctx.guild.default_role
-    
-    # Overwrite permissions for @everyone to prevent sending messages
+
     overwrite = channel.overwrites_for(default_role)
     overwrite.send_messages = False
-    
+
     await channel.set_permissions(default_role, overwrite=overwrite)
-    
+
     embed = discord.Embed(
         title="🔒 Channel Locked",
         description=f"{channel.mention} has been locked down. Only Administrators can send messages now.",
         color=0xED4245
     )
     await ctx.send(embed=embed)
-    
+
     try:
         await ctx.message.delete(delay=5.0)
     except:
@@ -317,25 +360,40 @@ async def lockdown(ctx, channel: discord.TextChannel = None):
 async def unlock(ctx, channel: discord.TextChannel = None):
     """Unlocks a channel so regular users can send messages again."""
     channel = channel or ctx.channel
-    
+
     default_role = ctx.guild.default_role
-    
+
     overwrite = channel.overwrites_for(default_role)
-    overwrite.send_messages = None # Reset to default
-    
+    overwrite.send_messages = None
+
     await channel.set_permissions(default_role, overwrite=overwrite)
-    
+
     embed = discord.Embed(
         title="🔓 Channel Unlocked",
         description=f"{channel.mention} has been unlocked. Regular users can now send messages.",
         color=0x57F287
     )
     await ctx.send(embed=embed)
-    
+
     try:
         await ctx.message.delete(delay=5.0)
     except:
         pass
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def test_boost(ctx):
+    """Test command to simulate a boost message."""
+    try:
+        await ctx.message.delete()
+    except:
+        pass
+    channel = bot.get_channel(BOOST_CHANNEL_ID)
+    if channel:
+        await send_boost_embed(channel, ctx.author)
+        await ctx.send("✅ Test boost message sent!", delete_after=5)
+    else:
+        await ctx.send("❌ Boost channel not found! Check the channel ID.", delete_after=5)
 
 @bot.command()
 async def ping(ctx):
