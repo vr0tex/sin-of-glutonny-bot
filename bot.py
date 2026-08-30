@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import os
 import asyncio
+import traceback
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
@@ -147,6 +148,7 @@ class ApplyView(discord.ui.View):
         try:
             return await bot.fetch_channel(MOD_APP_CHANNEL_ID)
         except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+            print(f"[MOD APP] Could not resolve channel {MOD_APP_CHANNEL_ID}; falling back to interaction channel.")
             return interaction.channel
 
     @discord.ui.button(label="Apply for Moderator", style=discord.ButtonStyle.primary, custom_id="apply_mod_btn")
@@ -212,11 +214,13 @@ class ApplyView(discord.ui.View):
 
             mod_app_channel = await self.get_mod_app_channel(interaction)
 
-            if mod_app_channel:
+            try:
                 await mod_app_channel.send(embed=embed, view=AppDecisionView(user))
                 await user.send("Your application has been submitted successfully!")
-            else:
-                await user.send("There was an error submitting your application (Moderator application channel not found or inaccessible). Please contact an admin.")
+            except (discord.Forbidden, discord.HTTPException, AttributeError):
+                print(f"[MOD APP] Failed to send application to {mod_app_channel}.")
+                traceback.print_exc()
+                await user.send("There was an error submitting your application. Please contact an admin.")
 
         except asyncio.TimeoutError:
             await user.send("Your application timed out. Please try again.")
